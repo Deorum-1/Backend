@@ -1,5 +1,15 @@
 import express from "express"
 
-const app = express(); //create an express ap.
+const app = express(); //create an express app.
+
+app.use(express.json()); //middleware to parse incoming JSON requests
+
+// routes import 
+import userRouter from './routes/user.route.js'
+
+// route declaration
+app.use("/api/v1/users", userRouter);
+
+// Example route: https://localhost:4000/api/v1/users/register
 
 export default app;

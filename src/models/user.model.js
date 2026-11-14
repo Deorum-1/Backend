@@ -1,6 +1,7 @@
-import monoose, {
-    Schema
-} from "mongoose";
+import mongoose, { Schema } from "mongoose";
+import bcrypt from "bcrypt";
+
+
 
 const userSchema = new Schema(
     {
@@ -17,19 +18,30 @@ const userSchema = new Schema(
             type: String,
             required: true,
             minLength: 6,
-            maxLength: 50,
+            maxLength: 83,
         },
         email: {
             type: String,
             required: true,
             unique: true,
             lowercase: true,
-            trim: 100
-        }
+            trim: true
+        },
     },
     {
         timestamps: true,
     }
-);
+)
+// before saving any password, you must hash it
+userSchema.pre('save', async function () {
+    if (!this.isModified('password')) return;
+    this.password = await bcrypt.hash(this.password, 10);
+});
+
+// compare passwords
+userSchema.methods.comparepassword = async function (password) {
+    return await bcrypt.compare(password, this.password);
+}
+
 
 export const User = mongoose.model("User", userSchema);    

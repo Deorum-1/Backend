@@ -1,5 +1,7 @@
 import mongoose, { Schema } from "mongoose";
 import bcrypt from "bcrypt";
+import { Buffer } from "node:buffer";
+import { BCRYPT_PASSWORD_MAX_BYTES } from "../config/constants.js";
 
 
 
@@ -18,7 +20,12 @@ const userSchema = new Schema(
             type: String,
             required: true,
             minLength: 6,
-            maxLength: 83,
+            maxLength: BCRYPT_PASSWORD_MAX_BYTES,
+            validate: {
+                validator: (password) =>
+                    Buffer.byteLength(password, "utf8") <= BCRYPT_PASSWORD_MAX_BYTES,
+                message: `Password must not exceed ${BCRYPT_PASSWORD_MAX_BYTES} UTF-8 bytes`,
+            },
         },
         email: {
             type: String,
@@ -40,6 +47,13 @@ userSchema.pre('save', async function () {
 
 // compare passwords
 userSchema.methods.comparepassword = async function (password) {
+    if (
+        typeof password !== "string" ||
+        Buffer.byteLength(password, "utf8") > BCRYPT_PASSWORD_MAX_BYTES
+    ) {
+        return false;
+    }
+
     return await bcrypt.compare(password, this.password);
 }
 

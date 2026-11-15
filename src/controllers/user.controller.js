@@ -1,16 +1,31 @@
 import { User } from "../models/user.model.js";
+import { Buffer } from "node:buffer";
+import { BCRYPT_PASSWORD_MAX_BYTES } from "../config/constants.js";
+
+const hasRequiredStringFields = (body, fields) =>
+    body !== null &&
+    typeof body === "object" &&
+    !Array.isArray(body) &&
+    fields.every((field) => typeof body[field] === "string" && body[field].length > 0);
+
+const passwordWithinBcryptLimit = (password) =>
+    Buffer.byteLength(password, "utf8") <= BCRYPT_PASSWORD_MAX_BYTES;
 
 const registerUser = async (req, res) => {
     try {
-        const { username, password, email } = req.body;
-
-
-        // basic validation
-        if (!username || !password || !email) {
-            return res.status(400).json({ message: "All felds are important!" })
+        if (!hasRequiredStringFields(req.body, ["username", "password", "email"])) {
+            return res.status(400).json({
+                message: "Username, password, and email must be non-empty strings",
+            });
         }
 
+        const { username, password, email } = req.body;
 
+        if (!passwordWithinBcryptLimit(password)) {
+            return res.status(400).json({
+                message: `Password must not exceed ${BCRYPT_PASSWORD_MAX_BYTES} UTF-8 bytes`,
+            });
+        }
 
         // check if user already exists
         const existingUser = await User.findOne({ email: email.toLowerCase() });
@@ -28,14 +43,30 @@ const registerUser = async (req, res) => {
 
         res.status(201).json({ message: "User registered successfully", user: { id: user._id, email: user.email, username: user.username } });
     } catch (error) {
-        res.status(500).json({ message: "Internal server error", error: error.message });
+        if (error?.code === 11000) {
+            return res.status(409).json({ message: "Username or email already exists" });
+        }
+
+        res.status(500).json({ message: "Internal server error" });
     }
 }
 
 const loginUser = async (req, res) => {
     try {
         // checking if the user already exists
+        if (!hasRequiredStringFields(req.body, ["email", "password"])) {
+            return res.status(400).json({
+                message: "Email and password must be non-empty strings",
+            });
+        }
+
         const { email, password } = req.body;
+
+        if (!passwordWithinBcryptLimit(password)) {
+            return res.status(400).json({
+                message: `Password must not exceed ${BCRYPT_PASSWORD_MAX_BYTES} UTF-8 bytes`,
+            });
+        }
 
         const user = await User.findOne({
             email: email.toLowerCase()
